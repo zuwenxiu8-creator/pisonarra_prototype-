@@ -565,6 +565,12 @@
       font-weight: 800;
     }
 
+    .amount-control button:disabled,
+    .btn:disabled {
+      opacity: .42;
+      cursor: not-allowed;
+    }
+
     .amount-control strong { font-size: 34px; }
 
     .choice-list { display: grid; gap: 12px; margin-top: 14px; }
@@ -932,10 +938,38 @@
     }
 
     .legal-copy {
-      max-height: 320px;
-      overflow: auto;
+      overflow: visible;
       padding-right: 6px;
       line-height: 1.5;
+    }
+
+    #privacyPage.screen {
+      padding: 0;
+      background: #fff;
+    }
+
+    .privacy-full {
+      min-height: 100%;
+      background: #fff;
+      padding: 22px 18px 92px;
+    }
+
+    .privacy-section {
+      margin-top: 14px;
+      border-top: 1px solid var(--line);
+      padding-top: 14px;
+    }
+
+    .photo-upload-preview {
+      display: none;
+      margin-top: 10px;
+      border-radius: 8px;
+      background: #eef8f4;
+      border: 1px solid #92cbbb;
+      padding: 10px;
+      font-size: 12px;
+      color: var(--green-dark);
+      font-weight: 750;
     }
 
     @media (max-height: 760px) {
@@ -1382,6 +1416,9 @@
         <h3>Juan Dela Cruz</h3>
         <p class="small muted">Mobile: <span id="maskedPhone">098****2123</span></p>
       </div>
+      <div class="section">
+        <button class="btn secondary" data-auth-logout="1" onclick="authLogout()">Log out</button>
+      </div>
       <div class="section card">
         <div class="list-row"><span>Account details</span><button class="link-btn" onclick="show('accountDetails')">View</button></div>
         <div class="list-row"><span>Profile verification</span><button class="link-btn" onclick="show('verificationCenter')">View only</button></div>
@@ -1396,7 +1433,7 @@
         <button class="btn danger" onclick="show('deleteAccount')">Delete account</button>
       </div>
       <div class="section">
-        <button class="btn secondary" onclick="logout()">Log out</button>
+        <button class="btn secondary" data-auth-logout="1" onclick="authLogout()">Log out</button>
       </div>
     </section>
 
@@ -1506,8 +1543,9 @@
     <section id="feedback" class="screen">
       <div class="topbar"><button class="icon-btn" onclick="backFromFeedback()">‹</button><h2 style="margin:0;">Feedback</h2><span></span></div>
       <div class="card">
-        <div class="field"><label>Feedback type</label><select id="feedbackType"><option value="">Select</option><option>Loan application</option><option>Repayment</option><option>Account</option><option>Bug report</option><option>Suggestion</option></select></div>
-        <div class="field"><label>Your feedback</label><input id="feedbackText" maxlength="255" placeholder="Please describe your issue or suggestion" /></div>
+        <div class="field"><label>Problem description</label><input id="feedbackText" maxlength="255" placeholder="Please describe your issue or suggestion" /></div>
+        <button class="upload-box" type="button" onclick="uploadFeedbackPhoto()"><div><b>Upload photo</b><p class="small muted">Optional. Only one photo can be uploaded.</p></div></button>
+        <div id="feedbackPhotoPreview" class="photo-upload-preview">Photo uploaded. Tap submit to send feedback.</div>
         <div class="field"><label>Contact phone</label><input id="feedbackPhone" inputmode="numeric" maxlength="11" placeholder="09XXXXXXXXX" /></div>
         <div id="feedbackError" class="error"></div>
         <div class="form-actions"><button class="btn" onclick="submitFeedback()">Submit feedback</button></div>
@@ -1532,7 +1570,7 @@
         <div class="glyph" style="margin:0 auto 14px;width:54px;height:54px;font-size:28px;">✓</div>
         <h2>Account deletion request received</h2>
         <p class="muted" style="margin-top:8px;">We will verify account status and process the request. You can contact customer service for updates.</p>
-        <div class="form-actions"><button class="btn" onclick="logout()">Back to login</button></div>
+        <div class="form-actions"><button class="btn" data-auth-logout="1" onclick="authLogout()">Back to login</button></div>
       </div>
     </section>
 
@@ -2600,6 +2638,13 @@
       document.getElementById("walletNo").value = "";
       document.getElementById("walletNo2").value = "";
       toast("E-wallet account added and set as default");
+      if (window.__pendingWithdrawSubmit || window.__addAccountReturnMode === "withdraw-submit") {
+        window.__pendingWithdrawSubmit = false;
+        window.__addAccountReturnMode = "";
+        updateWithdrawAccountSummary();
+        show("loanRequest");
+        return;
+      }
       show("withdrawMethods");
       switchWithdraw("wallet");
     }
@@ -2632,6 +2677,13 @@
       document.getElementById("bankNo2").value = "";
       document.getElementById("bankPhone").value = "";
       toast("Bank account added and set as default");
+      if (window.__pendingWithdrawSubmit || window.__addAccountReturnMode === "withdraw-submit") {
+        window.__pendingWithdrawSubmit = false;
+        window.__addAccountReturnMode = "";
+        updateWithdrawAccountSummary();
+        show("loanRequest");
+        return;
+      }
       show("withdrawMethods");
       switchWithdraw("bank");
     }
@@ -2902,13 +2954,11 @@
     }
 
     function submitFeedback() {
-      const type = document.getElementById("feedbackType").value;
       const text = document.getElementById("feedbackText").value.trim();
       const phone = document.getElementById("feedbackPhone").value.trim();
       let msg = "";
-      clearInvalid(["feedbackType", "feedbackText", "feedbackPhone"]);
-      if (!type) { setInvalid("feedbackType"); msg = "Feedback type is required. Please fill it in and try again."; }
-      else if (!text) { setInvalid("feedbackText"); msg = "Feedback content is required. Please fill it in and try again."; }
+      clearInvalid(["feedbackText", "feedbackPhone"]);
+      if (!text) { setInvalid("feedbackText"); msg = "Please describe your issue before submitting feedback."; }
       else if (phone && !phoneRegex.test(phone)) { setInvalid("feedbackPhone"); msg = "Enter a valid Philippine mobile number."; }
       document.getElementById("feedbackError").textContent = msg;
       if (!msg) {
@@ -3121,6 +3171,7 @@
         { id: "FB20260624001", type: "Repayment", status: "In progress", text: "Payment result is still being confirmed." },
         { id: "FB20260621008", type: "Account", status: "Solved", text: "Updated mobile number display issue." }
       ];
+      let feedbackPhotoUploaded = false;
       const faceDailyLimit = 10;
       let selectedProductForDetail = 1;
       window.selectedProductForDetail = selectedProductForDetail;
@@ -3605,6 +3656,9 @@
         const meta = statusMeta(state.status, state.enabled);
         const buttonDisabled = state.status === "closed";
         const repaySummary = repaymentHomeSummary(state);
+        const singleAction = state.status === "available"
+          ? `<button class="btn${buttonDisabled ? " secondary" : ""}" ${buttonDisabled ? "disabled" : ""} onclick="handleProductAction(${product.id})">${meta.action}</button>`
+          : `<div class="inline-actions"><button class="btn${buttonDisabled ? " secondary" : ""}" ${buttonDisabled ? "disabled" : ""} onclick="handleProductAction(${product.id})">${meta.action}</button><button class="btn secondary" onclick="showProductDetail(${product.id})">Details</button></div>`;
         return `
           <div class="card home-product-card${primary ? " primary" : ""}">
             <div class="loan-head">
@@ -3622,10 +3676,7 @@
               ${repaySummary ? `<div><span>Repayment amount</span><b>${state.payable || "₱1,650"}</b></div><div><span>Due / overdue</span><b>${state.dueDate || "2026-05-20"} · ${state.overdueDays || 0} days</b></div>` : ""}
             </div>
             <div class="product-status-note">${repaySummary || state.countdown || meta.note}</div>
-            <div class="inline-actions">
-              <button class="btn${buttonDisabled ? " secondary" : ""}" ${buttonDisabled ? "disabled" : ""} onclick="handleProductAction(${product.id})">${meta.action}</button>
-              <button class="btn secondary" onclick="showProductDetail(${product.id})">Details</button>
-            </div>
+            <div class="form-actions">${singleAction}</div>
           </div>
         `;
       };
@@ -3643,11 +3694,10 @@
         document.getElementById("mainProductStatus").className = "tag " + mainMeta.tag;
         document.getElementById("mainProductStatus").textContent = mainMeta.label;
         document.getElementById("mainProductCopy").textContent = repaymentHomeSummary(mainState) || mainState.countdown || (productScenarios[currentProductScenario] || productScenarios.default).note;
-        document.getElementById("mainProductAction").innerHTML = `
-          <div class="inline-actions">
-            <button class="btn" onclick="handleProductAction(${mainProduct.id})">${mainMeta.action}</button>
-            <button class="btn secondary" onclick="showProductDetail(${mainProduct.id})">Details</button>
-          </div>`;
+        const mainSingleAction = mainState.status === "available"
+          ? `<button class="btn" onclick="handleProductAction(${mainProduct.id})">Apply</button>`
+          : `<button class="btn" onclick="handleProductAction(${mainProduct.id})">${mainMeta.action}</button>`;
+        document.getElementById("mainProductAction").innerHTML = mainSingleAction;
         const secondaryList = document.getElementById("secondaryProductList");
         secondaryList.innerHTML = visibleIds.slice(1).map(id => productCatalog.find(product => product.id === id)).filter(Boolean).map(product => renderProductCard(product)).join("");
         activeProductId = mainProduct.id;
@@ -3735,21 +3785,67 @@
 
       function renderPrivacyPage() {
         const page = document.getElementById("privacyPage");
-        if (!page || page.dataset.enhanced === "1") return;
+        if (!page) return;
         page.dataset.enhanced = "1";
         page.innerHTML = `
-          <div class="topbar"><button class="icon-btn" onclick="show('profile')">‹</button><h2 style="margin:0;">Privacy Policy</h2><span class="tag">2026.06</span></div>
-          <div class="card legal-copy">
-            <h3>Information we collect</h3>
-            <p class="small muted">PisoNarra collects phone number, OTP status, account records, ID photos, OCR results, face verification photos, handheld ID photos, application profile, selected contact information, withdrawal account data, device information, location, SMS security signals, app usage signals, behavior events, loan records, repayment records, coupons, customer service and feedback records.</p>
-            <h3 style="margin-top:14px;">Contact permission</h3>
-            <p class="small muted">We do not bulk read your address book. When you tap Choose from contacts, only the contact you select is imported. Unselected contacts are not read, uploaded or stored.</p>
-            <h3 style="margin-top:14px;">Why we collect</h3>
-            <p class="small muted">Data is used for account security, identity verification, anti-fraud review, credit assessment, loan approval, payout account validation, repayment processing, customer support, complaint handling and legal or regulatory obligations.</p>
-            <h3 style="margin-top:14px;">Third-party services</h3>
-            <p class="small muted">We may use OCR/KYC vendors, BaiRong liveness service, risk-control vendors, SMS providers, customer service systems, cloud storage and repayment partners including Skypay and Paycools.</p>
-            <h3 style="margin-top:14px;">User rights</h3>
-            <p class="small muted">You can request access, correction, deletion, withdrawal of consent and account cancellation through customer service or the in-app deletion flow.</p>
+          <div class="privacy-full">
+            <div class="topbar"><button class="icon-btn" onclick="show('profile')">‹</button><h2 style="margin:0;">Privacy Policy</h2><span class="tag">2026.06</span></div>
+            <div class="legal-copy">
+              <p class="small muted">PisoNarra respects your privacy and processes personal information in line with the Philippine Data Privacy Act of 2012, its implementing rules, and applicable guidance from the National Privacy Commission. This notice explains what data we collect, why we use it, how we protect it, and how you can exercise your rights.</p>
+
+              <div class="privacy-section">
+                <h3>1. Personal information controller</h3>
+                <p class="small muted">PisoNarra is responsible for deciding how personal information is collected and used for account registration, identity verification, loan application, loan servicing, repayment support, customer service, fraud prevention, compliance and account deletion.</p>
+              </div>
+
+              <div class="privacy-section">
+                <h3>2. Information we collect</h3>
+                <p class="small muted">We may collect your mobile number, OTP status, login records, account status, ID photos, OCR results, name, date of birth, gender, ID number, selfie or liveness result, handheld ID photo, employment details, income details, address, selected emergency contacts, withdrawal account information, loan application records, approval result, contracts, repayment records, coupons, customer service records and feedback records.</p>
+                <p class="small muted" style="margin-top:8px;">We may also collect device model, operating system, app version, network status, device identifiers, location, SMS security signals, app usage signals and behavior events for security, anti-fraud and credit risk review.</p>
+              </div>
+
+              <div class="privacy-section">
+                <h3>3. Contacts and permissions</h3>
+                <p class="small muted">We do not bulk read your address book. When you tap Choose from contacts, only the contact you manually select is imported into the application form. Unselected contacts are not read, uploaded, displayed or stored.</p>
+                <p class="small muted" style="margin-top:8px;">Camera permission is used for ID photos, OCR, liveness verification and handheld ID photo upload. Location, SMS security signals, device information and app usage signals are used for account security, fraud prevention and credit assessment.</p>
+              </div>
+
+              <div class="privacy-section">
+                <h3>4. Purpose of processing</h3>
+                <p class="small muted">We process data to register and secure your account, verify identity, assess loan eligibility, calculate product amount and term, prevent fraud, prepare loan agreements, process withdrawal accounts, support repayments, send service notices, handle customer service requests, process feedback, review account deletion requests and comply with legal or regulatory obligations.</p>
+              </div>
+
+              <div class="privacy-section">
+                <h3>5. Sharing and third parties</h3>
+                <p class="small muted">We may share necessary data with identity verification providers, OCR providers, BaiRong liveness service, risk-control and anti-fraud partners, SMS providers, cloud service providers, customer service systems, payment and repayment partners including Skypay and Paycools, legal advisers, auditors, regulators or law enforcement when required by law.</p>
+                <p class="small muted" style="margin-top:8px;">Third parties may only process information for the purpose authorized by PisoNarra, contractual obligations, security requirements and applicable law.</p>
+              </div>
+
+              <div class="privacy-section">
+                <h3>6. Data retention</h3>
+                <p class="small muted">We keep personal information only for as long as necessary for loan servicing, account management, dispute resolution, anti-fraud review, audit, legal compliance and legitimate business purposes. When retention is no longer required, data will be deleted, anonymized or securely archived according to policy.</p>
+              </div>
+
+              <div class="privacy-section">
+                <h3>7. Security measures</h3>
+                <p class="small muted">We apply access control, encryption where appropriate, masking of sensitive information, operational logs, permission control and internal review to protect personal information from unauthorized access, misuse, alteration, disclosure or loss.</p>
+              </div>
+
+              <div class="privacy-section">
+                <h3>8. Your rights</h3>
+                <p class="small muted">You may request access, correction, deletion or blocking of personal information, object to processing, withdraw consent where applicable, request data portability where applicable, and file a complaint through customer service or the proper privacy authority.</p>
+              </div>
+
+              <div class="privacy-section">
+                <h3>9. Account deletion and consent withdrawal</h3>
+                <p class="small muted">You may request account deletion in the app. Deletion can proceed only after active loans, pending repayment, overdue orders and disbursement issues are closed. Withdrawing required permissions may limit registration, application, withdrawal or repayment services.</p>
+              </div>
+
+              <div class="privacy-section">
+                <h3>10. Contact us</h3>
+                <p class="small muted">For privacy requests, correction, deletion, complaints or questions, contact customer service in the app or call 09876543216 during service hours. We will review and respond according to applicable policy and law.</p>
+              </div>
+            </div>
           </div>
         `;
       }
@@ -3880,10 +3976,11 @@
         if (!card) return;
         const account = getSelectedWithdrawAccount();
         const summary = account ? `${selectedWithdraw.type === "wallet" ? account.name : "Bank · " + account.name} ${accountDisplay(account, selectedWithdraw.type)}` : "No account selected";
+        const payoutAmountText = window.__lastSubmittedLoanAmountText || document.getElementById("loanAmount")?.textContent || "₱5,000";
         document.getElementById("payoutAccount").textContent = summary;
-        document.getElementById("payoutAmount").textContent = document.getElementById("loanAmount")?.textContent || "₱5,000";
+        document.getElementById("payoutAmount").textContent = payoutAmountText;
         const states = {
-          disbursing: ["Disbursing", "blue", "Your loan is being transferred to the selected withdrawal account.", "info"],
+          disbursing: ["Disbursing", "blue", `Your loan ${payoutAmountText} is being transferred to the selected withdrawal account.`, "info"],
           success: ["Payout successful", "", "Funds have been sent. Please check your selected account.", ""],
           failed: ["Payout failed", "red", "The payout account or channel returned an error. Choose another account and retry.", "danger"]
         };
@@ -3891,14 +3988,30 @@
         document.getElementById("payoutStatusTag").className = "tag " + tag;
         document.getElementById("payoutStatusTag").textContent = title;
         card.className = "card status-card " + cardClass;
+        const actions = currentPayoutState === "failed"
+          ? `<button class="btn" onclick="show('loanRequest')">Withdraw</button><button class="btn secondary" onclick="openWithdrawMethods()">Change account</button>`
+          : `<button class="btn secondary" onclick="openWithdrawMethods()">Change account</button><button class="btn" onclick="toast('Payout retry submitted')">Retry payout</button>`;
         card.innerHTML = `
           <h3>${title}</h3>
           <p class="small muted">${body}</p>
           <div class="inline-actions">
-            <button class="btn secondary" onclick="openWithdrawMethods()">Change account</button>
-            <button class="btn" onclick="toast('Payout retry submitted')">Retry payout</button>
+            ${actions}
           </div>
         `;
+      }
+
+      function returnAfterAccountAdded(type) {
+        renderWithdrawAccounts();
+        switchWithdraw(type);
+        if (window.__pendingWithdrawSubmit || window.__addAccountReturnMode === "withdraw-submit") {
+          window.__pendingWithdrawSubmit = false;
+          window.__addAccountReturnMode = "";
+          updateWithdrawAccountSummary();
+          toast("Withdrawal account added and set as default");
+          show("loanRequest");
+          return;
+        }
+        show("withdrawMethods");
       }
 
       function renderMethodTabs() {
@@ -4036,20 +4149,32 @@
       }
 
       window.submitFeedback = function enhancedSubmitFeedback() {
-        const type = document.getElementById("feedbackType").value;
         const text = document.getElementById("feedbackText").value.trim();
         const phone = document.getElementById("feedbackPhone").value.trim();
         let msg = "";
-        clearInvalid(["feedbackType", "feedbackText", "feedbackPhone"]);
-        if (!type) { setInvalid("feedbackType"); msg = "Feedback type is required. Please fill it in and try again."; }
-        else if (!text) { setInvalid("feedbackText"); msg = "Feedback content is required. Please fill it in and try again."; }
+        clearInvalid(["feedbackText", "feedbackPhone"]);
+        if (!text) { setInvalid("feedbackText"); msg = "Please describe your issue before submitting feedback."; }
         else if (phone && !phoneRegex.test(phone)) { setInvalid("feedbackPhone"); msg = "Enter a valid Philippine mobile number."; }
         document.getElementById("feedbackError").textContent = msg;
         if (!msg) {
-          feedbackRecords.unshift({ id: "FB" + Date.now().toString().slice(-10), type, status: "In progress", text });
+          feedbackRecords.unshift({ id: "FB" + Date.now().toString().slice(-10), type: "Feedback", status: "In progress", text: feedbackPhotoUploaded ? text + " · Photo attached" : text });
+          feedbackPhotoUploaded = false;
+          const preview = document.getElementById("feedbackPhotoPreview");
+          if (preview) preview.style.display = "none";
           toast("Feedback submitted. Thank you.");
           show(feedbackReturnScreen || "profile");
         }
+      };
+
+      window.uploadFeedbackPhoto = function uploadFeedbackPhoto() {
+        const preview = document.getElementById("feedbackPhotoPreview");
+        if (feedbackPhotoUploaded) {
+          toast("Only one photo can be uploaded.");
+          return;
+        }
+        feedbackPhotoUploaded = true;
+        if (preview) preview.style.display = "block";
+        toast("Photo uploaded");
       };
 
       function enhanceProfileRows() {
@@ -4150,6 +4275,816 @@
       renderRepaymentMethodPage();
       enhanceProfileRows();
     })();
+  </script>
+  <script>
+    (function addAuthStateRouting() {
+      let appLoggedIn = false;
+      let authReturnTarget = "home";
+      let authReturnAction = null;
+      const publicScreens = new Set([
+        "agreement",
+        "auth",
+        "otpScreen",
+        "home",
+        "messages",
+        "profile",
+        "privacyPage",
+        "helpCenter",
+        "feedback",
+        "loanGuide",
+        "rateCalculator"
+      ]);
+      const authTemplates = {
+        home: document.getElementById("home").innerHTML,
+        messages: document.getElementById("messages").innerHTML,
+        profile: document.getElementById("profile").innerHTML
+      };
+      const authView = { home: "signed", messages: "signed", profile: "signed" };
+
+      function isPublicScreen(id) {
+        return publicScreens.has(id);
+      }
+
+      function requestAuth(target = "home", action = null) {
+        authReturnTarget = target;
+        authReturnAction = action;
+        renderAuthNotice(target);
+        baseShow("auth");
+      }
+
+      function targetLabel(target) {
+        const map = {
+          apply1: "loan application",
+          loanRequest: "loan confirmation",
+          withdrawMethods: "withdrawal account",
+          repayment: "repayment",
+          repaymentMethod: "repayment method",
+          payCode: "payment code",
+          history: "loan history",
+          orderDetail: "order detail",
+          coupons: "coupon center",
+          accountDetails: "account details",
+          verificationCenter: "verification center",
+          repaymentChannels: "repayment channels",
+          permissionsPage: "permission management",
+          deleteAccount: "account deletion",
+          accountManagement: "withdrawal account management",
+          feedbackHistory: "feedback history",
+          deletionProgress: "deletion progress"
+        };
+        return map[target] || "this page";
+      }
+
+      function renderAuthNotice(target) {
+        const agreeError = document.getElementById("agreeError");
+        if (agreeError) agreeError.textContent = "";
+        const phoneError = document.getElementById("phoneError");
+        if (phoneError) phoneError.textContent = "";
+        const existing = document.getElementById("loginReturnNotice");
+        if (existing) existing.remove();
+        const phoneField = document.querySelector("#auth .field");
+        if (phoneField) {
+          phoneField.insertAdjacentHTML("beforebegin", `
+            <div id="loginReturnNotice" class="notice" style="margin-top:18px;">
+              Please log in to continue to ${targetLabel(target)}. After login, you will return to the page you selected.
+            </div>
+          `);
+        }
+      }
+
+      function ensureSignedTemplate(id) {
+        const el = document.getElementById(id);
+        if (!el || authView[id] === "signed") return;
+        el.innerHTML = authTemplates[id];
+        authView[id] = "signed";
+        bindLogoutButtons();
+        if (id === "home") renderHomeProducts();
+        if (id === "profile") setLoggedPhone(document.getElementById("phone").value || devicePhoneNumber);
+      }
+
+      function bindLogoutButtons() {
+        document.querySelectorAll("#profile button").forEach(button => {
+          if (button.textContent.trim() === "Log out") button.dataset.authLogout = "1";
+        });
+      }
+
+      function renderGuestHome() {
+        const home = document.getElementById("home");
+        if (!home || authView.home === "guest") return;
+        home.innerHTML = `
+          <div class="topbar">
+            <div>
+              <p class="muted small">Welcome</p>
+              <h2 style="margin:0;">PisoNarra Cash</h2>
+            </div>
+            <button class="icon-btn" title="Messages" onclick="show('messages')">🔔</button>
+          </div>
+          <div class="hero">
+            <div class="product-title-row">
+              <div>
+                <p class="small" style="opacity:.82;">Product name</p>
+                <h3>Narra Starter</h3>
+              </div>
+              <span class="tag">Apply</span>
+            </div>
+            <p>Maximum loan amount</p>
+            <strong>₱ 5,000</strong>
+            <p class="small">Log in with your mobile number to apply, view loan status, withdraw or repay.</p>
+            <div class="hero-grid">
+              <div class="hero-stat"><span>Daily Rate</span><b>0.05%</b></div>
+              <div class="hero-stat"><span>Loan term</span><b>91-360days</b></div>
+            </div>
+          </div>
+          <div class="section">
+            <button class="btn" onclick="requestLoginForPage('apply1')">Apply</button>
+          </div>
+          <div class="section quick-grid home-actions">
+            <button class="quick" onclick="show('loanGuide')"><span class="glyph">i</span>Process</button>
+            <button class="quick" onclick="show('rateCalculator')"><span class="glyph">%</span>Calculator</button>
+            <button class="quick" onclick="openGuestSupport()"><span class="glyph">☎</span>Service</button>
+          </div>
+          <div class="section card">
+            <div class="loan-head"><div><h3>Before login</h3><p class="small muted">These pages are available without signing in.</p></div><span class="tag gray">Guest</span></div>
+            <div class="summary-row"><span>Privacy Policy</span><button class="link-btn" onclick="show('privacyPage')">View</button></div>
+            <div class="summary-row"><span>Customer Service</span><button class="link-btn" onclick="openGuestSupport()">Contact</button></div>
+            <div class="summary-row"><span>Feedback</span><button class="link-btn" onclick="openFeedback('home')">Submit</button></div>
+          </div>
+        `;
+        authView.home = "guest";
+      }
+
+      function renderGuestMessages() {
+        const messages = document.getElementById("messages");
+        if (!messages || authView.messages === "guest") return;
+        messages.innerHTML = `
+          <div class="topbar"><button class="icon-btn" onclick="show('home')">‹</button><h2 style="margin:0;">Messages</h2><button class="link-btn" onclick="requestLoginForPage('messages')">Login</button></div>
+          <div class="card status-card info">
+            <h3>Public information</h3>
+            <p class="small muted">You can read service information, contact customer service and submit feedback before login. Loan notifications require login.</p>
+          </div>
+          <div class="section card">
+            <div class="list-row"><span>Loan application guide</span><button class="link-btn" onclick="show('loanGuide')">Open</button></div>
+            <div class="list-row"><span>Privacy Policy</span><button class="link-btn" onclick="show('privacyPage')">View</button></div>
+            <div class="list-row"><span>Customer Service</span><button class="link-btn" onclick="openGuestSupport()">Contact</button></div>
+            <div class="list-row"><span>Feedback</span><button class="link-btn" onclick="openFeedback('messages')">Submit</button></div>
+          </div>
+          <div class="form-actions"><button class="btn" onclick="requestLoginForPage('messages')">Log in to view account messages</button></div>
+        `;
+        authView.messages = "guest";
+      }
+
+      function renderGuestProfile() {
+        const profile = document.getElementById("profile");
+        if (!profile || authView.profile === "guest") return;
+        profile.innerHTML = `
+          <div class="topbar"><div><p class="muted small">Guest mode</p><h2 style="margin:0;">My Page</h2></div><span class="tag gray">Not logged in</span></div>
+          <div class="card status-card info">
+            <h3>Welcome to PisoNarra</h3>
+            <p class="small muted">Log in to view loan history, withdrawal accounts, repayment records and account settings.</p>
+            <div class="form-actions"><button class="btn" onclick="requestLoginForPage('profile')">Log in / Register</button></div>
+          </div>
+          <div class="section card">
+            <div class="list-row"><span>Privacy Policy</span><button class="link-btn" onclick="show('privacyPage')">View</button></div>
+            <div class="list-row"><span>Loan Process</span><button class="link-btn" onclick="show('loanGuide')">Open</button></div>
+            <div class="list-row"><span>Rate Calculator</span><button class="link-btn" onclick="show('rateCalculator')">Open</button></div>
+            <div class="list-row"><span>Customer Service</span><button class="link-btn" onclick="openGuestSupport()">Contact</button></div>
+            <div class="list-row"><span>Feedback</span><button class="link-btn" onclick="openFeedback('profile')">Submit</button></div>
+          </div>
+        `;
+        authView.profile = "guest";
+      }
+
+      function applyAuthView(id) {
+        if (id === "home") {
+          if (appLoggedIn) ensureSignedTemplate("home");
+          else renderGuestHome();
+        }
+        if (id === "messages") {
+          if (appLoggedIn) ensureSignedTemplate("messages");
+          else renderGuestMessages();
+        }
+        if (id === "profile") {
+          if (appLoggedIn) ensureSignedTemplate("profile");
+          else renderGuestProfile();
+        }
+      }
+
+      function completeLogin(phone) {
+        appLoggedIn = true;
+        ensureSignedTemplate("profile");
+        setLoggedPhone(phone);
+        const target = authReturnTarget || "home";
+        const action = authReturnAction;
+        authReturnAction = null;
+        authReturnTarget = "home";
+        if (action) return action();
+        show(target);
+      }
+
+      window.requestLoginForPage = requestAuth;
+      window.isAppLoggedIn = () => appLoggedIn;
+
+      const baseShow = window.show;
+      window.show = function authAwareShow(id) {
+        if (!appLoggedIn && !isPublicScreen(id)) {
+          return requestAuth(id);
+        }
+        if (id === "home" || id === "messages" || id === "profile") ensureSignedTemplate(id);
+        baseShow(id);
+        applyAuthView(id);
+      };
+
+      const baseStartApplyFlow = window.startApplyFlow;
+      window.startApplyFlow = function authAwareStartApply(productId) {
+        activeProductId = productId;
+        if (!appLoggedIn) return requestAuth("apply1", () => baseStartApplyFlow(productId));
+        return baseStartApplyFlow(productId);
+      };
+
+      const baseHandleProductAction = window.handleProductAction;
+      window.handleProductAction = function authAwareProductAction(productId) {
+        const state = getProductState(productId);
+        if (!appLoggedIn) {
+          const target = state.status === "available" ? "apply1"
+            : state.status === "toRepay" ? "repayment"
+            : state.status === "disbursing" || state.status === "disburseFailed" ? "payoutStatus"
+            : state.status === "repaid" ? "orderDetail"
+            : "statusCenter";
+          return requestAuth(target, () => baseHandleProductAction(productId));
+        }
+        return baseHandleProductAction(productId);
+      };
+
+      const baseOpenWithdrawMethods = window.openWithdrawMethods;
+      window.openWithdrawMethods = function authAwareWithdraw(type) {
+        if (!appLoggedIn) return requestAuth("withdrawMethods", () => baseOpenWithdrawMethods(type));
+        return baseOpenWithdrawMethods(type);
+      };
+
+      const baseOpenPaymentMethod = window.openPaymentMethod;
+      window.openPaymentMethod = function authAwarePayment(amount, source, methodId = "") {
+        if (!appLoggedIn) return requestAuth("repaymentMethod", () => baseOpenPaymentMethod(amount, source, methodId));
+        return baseOpenPaymentMethod(amount, source, methodId);
+      };
+
+      window.sendOtp = function authStateSendOtp() {
+        const phone = document.getElementById("phone").value.trim();
+        document.getElementById("phoneError").textContent = "";
+        document.getElementById("agreeError").textContent = "";
+        if (!phoneRegex.test(phone)) {
+          document.getElementById("phoneError").textContent = "Enter a valid Philippine mobile number, for example 09876543216.";
+          setInvalid("phone");
+          return;
+        }
+        setInvalid("phone", false);
+        document.getElementById("otpPhone").textContent = "+63 " + phone.slice(1);
+        document.getElementById("otp").value = "";
+        document.getElementById("otpError").textContent = "";
+        baseShow("otpScreen");
+      };
+
+      window.useDevicePhone = function authStateUseDevicePhone() {
+        const phone = devicePhoneNumber;
+        document.getElementById("phone").value = phone;
+        document.getElementById("phoneError").textContent = "";
+        document.getElementById("agreeError").textContent = "";
+        document.getElementById("otpPhone").textContent = "+63 " + phone.slice(1);
+        document.getElementById("otp").value = capturedOtpCode;
+        document.getElementById("otpError").textContent = "";
+        baseShow("otpScreen");
+        toast("Device phone number detected");
+        setTimeout(() => {
+          if (document.querySelector(".auth-screen.active")?.id === "otpScreen" && document.getElementById("otp").value === capturedOtpCode) completeLogin(phone);
+        }, 650);
+      };
+
+      window.login = function authStateLogin() {
+        const phone = document.getElementById("phone").value.trim();
+        const otp = document.getElementById("otp").value.trim();
+        document.getElementById("phoneError").textContent = "";
+        document.getElementById("otpError").textContent = "";
+        if (!phoneRegex.test(phone)) return baseShow("auth");
+        if (otp === "000000") {
+          const message = "This verification code has expired. Please request a new one.";
+          document.getElementById("otpError").textContent = message;
+          toast(message);
+          return;
+        }
+        if (otp !== capturedOtpCode) {
+          const message = otp.length === 6 ? "The verification code is incorrect. Please re-enter." : "Please enter the 6-digit verification code.";
+          document.getElementById("otpError").textContent = message;
+          toast(message);
+          return;
+        }
+        completeLogin(phone);
+      };
+
+      function performAuthLogout() {
+        appLoggedIn = false;
+        authReturnTarget = "home";
+        authReturnAction = null;
+        show("profile");
+        toast("Logged out");
+      }
+
+      window.__pisoAuthLogout = performAuthLogout;
+      window.authLogout = performAuthLogout;
+      window.logout = performAuthLogout;
+      document.addEventListener("click", event => {
+        const button = event.target.closest("[data-auth-logout='1']");
+        if (!button) return;
+        event.preventDefault();
+        performAuthLogout();
+      });
+
+      baseShow("home");
+      bindLogoutButtons();
+      renderGuestHome();
+      renderGuestMessages();
+      renderGuestProfile();
+    })();
+  </script>
+  <script>
+    (function finalizeProductAndFeedbackRules() {
+      const originalGetVisibleProductIds = window.getVisibleProductIds || getVisibleProductIds;
+      window.getVisibleProductIds = function configuredProductDisplayRule() {
+        const scenario = productScenarios[currentProductScenario] || productScenarios.default;
+        if (scenario.visibleIds && currentProductScenario !== "default") return scenario.visibleIds.slice();
+        const activeOrderIds = productCatalog
+          .filter(product => {
+            const state = getProductState(product.id);
+            return ["reviewing", "approved", "disbursing", "disburseFailed", "toRepay", "rejected"].includes(state.status);
+          })
+          .map(product => product.id);
+        const nextEligible = productCatalog.find(product => {
+          const state = getProductState(product.id);
+          return state.enabled && state.status === "available";
+        });
+        const ids = [...activeOrderIds];
+        if (nextEligible && !ids.includes(nextEligible.id)) ids.push(nextEligible.id);
+        return ids.length ? ids.slice(0, 1) : originalGetVisibleProductIds().slice(0, 1);
+      };
+
+      const baseRenderHomeProductsFinal = window.renderHomeProducts || renderHomeProducts;
+      window.renderHomeProducts = function finalRenderHomeProducts() {
+        if (!document.getElementById("mainProductName")) return;
+        baseRenderHomeProductsFinal();
+        const state = getProductState(activeProductId);
+        const action = document.getElementById("mainProductAction");
+        if (action && state.status === "available") {
+          action.innerHTML = `<button class="btn" onclick="handleProductAction(${activeProductId})">Apply</button>`;
+        }
+        const secondaryList = document.getElementById("secondaryProductList");
+        if (secondaryList && currentProductScenario === "default") secondaryList.innerHTML = "";
+      };
+
+      function ensureFeedbackLayout() {
+        const card = document.querySelector("#feedback .card");
+        if (!card) return;
+        if (document.getElementById("feedbackType")) {
+          document.getElementById("feedbackType").closest(".field")?.remove();
+        }
+      }
+
+      const baseShowFinal = window.show;
+      window.show = function finalShow(id) {
+        baseShowFinal(id);
+        if (id === "feedback") ensureFeedbackLayout();
+      };
+
+      ensureFeedbackLayout();
+    })();
+  </script>
+  <script>
+    (function finalizeLoanApplicationAndWithdrawRules() {
+      const withdrawTermConfig = {
+        "91 days / 3 terms": {
+          min: 3000,
+          max: 5000,
+          termText: "91 days / 3 terms",
+          receivedRate: .74,
+          interestRate: .10,
+          serviceRate: .16,
+          riskFee: 500,
+          maintenanceFee: 100,
+          systemFee: 200,
+          plan: [
+            ["Term 1", "₱1,000 · Nov 11, 2026"],
+            ["Term 2", "₱1,000 · Dec 11, 2026"],
+            ["Term 3", "₱1,000 · Jan 11, 2027"]
+          ]
+        },
+        "121 days / 4 terms": {
+          min: 5000,
+          max: 9000,
+          termText: "121 days / 4 terms",
+          receivedRate: .76,
+          interestRate: .12,
+          serviceRate: .14,
+          riskFee: 700,
+          maintenanceFee: 150,
+          systemFee: 250,
+          plan: [
+            ["Term 1", "₱1,350 · Nov 11, 2026"],
+            ["Term 2", "₱1,350 · Dec 11, 2026"],
+            ["Term 3", "₱1,350 · Jan 11, 2027"],
+            ["Term 4", "₱1,350 · Feb 11, 2027"]
+          ]
+        },
+        "180 days / 6 terms": {
+          min: 8000,
+          max: 15000,
+          termText: "180 days / 6 terms",
+          receivedRate: .78,
+          interestRate: .14,
+          serviceRate: .12,
+          riskFee: 900,
+          maintenanceFee: 200,
+          systemFee: 300,
+          plan: [
+            ["Term 1", "₱1,820 · Nov 11, 2026"],
+            ["Term 2", "₱1,820 · Dec 11, 2026"],
+            ["Term 3", "₱1,820 · Jan 11, 2027"],
+            ["Term 4", "₱1,820 · Feb 11, 2027"],
+            ["Term 5", "₱1,820 · Mar 11, 2027"],
+            ["Term 6", "₱1,820 · Apr 11, 2027"]
+          ]
+        }
+      };
+      let selectedFinalTerm = "91 days / 3 terms";
+      let lastSubmittedLoanAmount = currentAmount;
+      let homeReviewScreenshotNotice = false;
+      const backendReviewReason = "";
+      const userIdTypeForModify = () => document.getElementById("idType")?.value || "NATIONALID";
+      const appReviewEnabled = true;
+      const whiteRejectEnabled = false;
+      const otherProductsH5 = "https://example.com/pisonarra/other-products";
+
+      Object.assign(productScenarios, {
+        creditReview: {
+          label: "Credit reviewing",
+          visibleIds: [1],
+          note: "Credit application is under review. Screenshots are restricted on the home page.",
+          states: { 1: { enabled: true, status: "creditReview", order: "PN2026062501" } }
+        },
+        modifyRequired: {
+          label: "Modify required",
+          visibleIds: [1],
+          note: backendReviewReason || "Some of your application information needs to be revised and uploaded again.",
+          states: { 1: { enabled: true, status: "modifyRequired", order: "PN2026062502" } }
+        },
+        nonWhiteRejected: {
+          label: "Rejected 14d",
+          visibleIds: [1],
+          note: "Application rejected. You can apply again after the configured 14-day countdown.",
+          states: { 1: { enabled: true, status: "nonWhiteRejected", order: "PN2026062503", countdown: "14 days left" } }
+        },
+        whiteRejected: {
+          label: "White rejected",
+          visibleIds: [1],
+          note: "White-list rejection is disabled for launch; when enabled, Other Products opens configured H5.",
+          states: { 1: { enabled: true, status: "whiteRejected", order: "PN2026062504", countdown: "14 days left" } }
+        },
+        quotaApproved: {
+          label: "Approved quota",
+          visibleIds: [1],
+          note: "Withdraw before the approval expires. New user: 30 days. Returning user: 14 days.",
+          states: { 1: { enabled: true, status: "quotaApproved", order: "PN2026062505", approvedMax: "₱15,000" } }
+        },
+        payoutProcessing: {
+          label: "Disbursing",
+          visibleIds: [1],
+          note: "Your loan amount approved by backend is being transferred to the payout account.",
+          states: { 1: { enabled: true, status: "payoutProcessing", order: "PN2026062506" } }
+        },
+        modifyExpiredRejected: {
+          label: "Modify expired",
+          visibleIds: [1],
+          note: "The modification window expired after 14 days. The application is now rejected.",
+          states: { 1: { enabled: true, status: "nonWhiteRejected", order: "PN2026062507", countdown: "14 days left" } }
+        }
+      });
+
+      function addFinalScenarioButton(key, label) {
+        const grid = document.getElementById("productStateJumpGrid");
+        if (!grid || grid.querySelector(`[data-product-state="${key}"]`)) return;
+        const button = document.createElement("button");
+        button.type = "button";
+        button.dataset.productState = key;
+        button.textContent = label;
+        button.onclick = () => setProductScenario(key);
+        grid.appendChild(button);
+      }
+      [
+        ["creditReview", "Credit reviewing"],
+        ["modifyRequired", "Modify required"],
+        ["nonWhiteRejected", "Rejected 14d"],
+        ["whiteRejected", "White rejected"],
+        ["quotaApproved", "Approved quota"],
+        ["payoutProcessing", "Disbursing"],
+        ["modifyExpiredRejected", "Modify expired"]
+      ].forEach(([key, label]) => addFinalScenarioButton(key, label));
+
+      const previousStatusMeta = window.statusMeta || statusMeta;
+      window.statusMeta = function finalStatusMeta(status, enabled) {
+        const finalMap = {
+          creditReview: { label: "Reviewing", tag: "blue", action: "Credit application under review", note: "Credit application is under review. The home page cannot be screenshot in native build." },
+          modifyRequired: { label: "Modify", tag: "gold", action: "Modify", note: backendReviewReason || "Some of your application information needs to be revised and uploaded again." },
+          nonWhiteRejected: { label: "Rejected", tag: "red", action: "Rejected · 14 days left", note: "You can apply again after the configured countdown ends." },
+          whiteRejected: { label: "Rejected", tag: "red", action: whiteRejectEnabled ? "Other Products" : "Rejected · 14 days left", note: whiteRejectEnabled ? "Other products are available through a configured H5 link." : "White-list rejection is closed at launch and shown as normal rejection." },
+          quotaApproved: { label: "Approved", tag: "", action: "Withdraw", note: "Risk approved. Withdraw before the approval expires." },
+          payoutProcessing: { label: "Disbursing", tag: "blue", action: "View payout", note: "Your loan amount approved by backend is being transferred to the payout account." },
+          disburseFailed: { label: "Payout failed", tag: "red", action: "Withdraw", note: "Payout failed. Please confirm the withdrawal account and submit again before the approval expires." }
+        };
+        if (finalMap[status]) return finalMap[status];
+        return previousStatusMeta(status, enabled);
+      };
+
+      const previousRenderHome = window.renderHomeProducts || renderHomeProducts;
+      window.renderHomeProducts = function finalLoanStateHome() {
+        if (!document.getElementById("mainProductName")) return;
+        previousRenderHome();
+        const state = getProductState(activeProductId);
+        const product = productCatalog.find(item => item.id === activeProductId) || productCatalog[0];
+        const meta = statusMeta(state.status, state.enabled);
+        const action = document.getElementById("mainProductAction");
+        const copy = document.getElementById("mainProductCopy");
+        const tag = document.getElementById("mainProductStatus");
+        if (!action || !copy || !tag) return;
+        tag.className = "tag " + meta.tag;
+        tag.textContent = meta.label;
+        copy.textContent = state.countdown || meta.note;
+        if (state.status === "available") {
+          action.innerHTML = `<button class="btn" onclick="handleProductAction(${product.id})">Apply</button>`;
+        } else if (state.status === "creditReview") {
+          action.innerHTML = `<button class="btn secondary" onclick="toast('Screenshots are disabled while credit application is under review')">Credit application under review</button>`;
+          if (!homeReviewScreenshotNotice) {
+            homeReviewScreenshotNotice = true;
+            toast("Screenshots are disabled while the application is under review");
+          }
+        } else if (state.status === "modifyRequired") {
+          action.innerHTML = `<button class="btn warning" onclick="openModifyRequired()">Modify</button>`;
+        } else if (state.status === "nonWhiteRejected" || state.status === "whiteRejected") {
+          const ratingButton = appReviewEnabled ? `<button class="btn secondary" onclick="openAppReview()">Rate us</button>` : "";
+          const otherButton = state.status === "whiteRejected" && whiteRejectEnabled ? `<button class="btn secondary" onclick="openOtherProducts()">Other Products</button>` : "";
+          action.innerHTML = `<div class="form-actions"><button class="btn danger" onclick="toast('Please wait until the countdown ends before applying again')">${state.countdown || "14 days left"}</button>${ratingButton}${otherButton}</div>`;
+        } else if (state.status === "quotaApproved") {
+          document.getElementById("mainProductLimit").textContent = state.approvedMax || "₱15,000";
+          copy.textContent = "Risk approved. Maximum approved amount and 91-360 days term are ready for withdrawal.";
+          action.innerHTML = `<button class="btn" onclick="show('loanRequest')">Withdraw</button>`;
+        } else if (state.status === "disburseFailed") {
+          copy.textContent = "Payout failed. Please return to the withdrawal page, confirm the account, and submit again before the approval expires.";
+          action.innerHTML = `<button class="btn" onclick="show('loanRequest')">Withdraw</button>`;
+        } else if (state.status === "payoutProcessing") {
+          const submittedAmount = state.submittedAmount || money(lastSubmittedLoanAmount);
+          copy.textContent = `Your loan ${submittedAmount} is being disbursed to the selected withdrawal account.`;
+          action.innerHTML = `<button class="btn secondary" onclick="show('payoutStatus')">${submittedAmount} disbursing</button>`;
+        }
+      };
+
+      const previousHandleProductAction = window.handleProductAction;
+      window.handleProductAction = function finalProductAction(productId) {
+        const state = getProductState(productId);
+        if (state.status === "creditReview") return toast("Credit application is under review");
+        if (state.status === "modifyRequired") return openModifyRequired();
+        if (state.status === "nonWhiteRejected") return toast("Please apply again after the countdown ends");
+        if (state.status === "whiteRejected") return whiteRejectEnabled ? openOtherProducts() : toast("Please apply again after the countdown ends");
+        if (state.status === "quotaApproved") return show("loanRequest");
+        if (state.status === "disburseFailed") return show("loanRequest");
+        if (state.status === "payoutProcessing") return show("payoutStatus");
+        return previousHandleProductAction(productId);
+      };
+
+      window.openModifyRequired = function openModifyRequired() {
+        const type = userIdTypeForModify();
+        const needsTwoPhotos = type === "NATIONALID" || type === "NATIONALID (electronic)";
+        show("apply1");
+        const message = backendReviewReason || "Some of your application information needs to be revised and uploaded again.";
+        document.getElementById("idError").textContent = `${message} ${needsTwoPhotos ? "Please retake front and back ID photos." : "Please retake one ID photo."}`;
+        document.getElementById("frontPhotoText").textContent = "Retake required ID photo";
+        if (needsTwoPhotos) {
+          document.getElementById("backUploadBox").style.display = "grid";
+          document.getElementById("backPhotoText").textContent = "Retake required back ID photo";
+        } else {
+          document.getElementById("backUploadBox").style.display = "none";
+        }
+      };
+
+      window.openAppReview = function openAppReview() {
+        toast("App store review page opened");
+      };
+
+      window.openOtherProducts = function openOtherProducts() {
+        document.getElementById("modalPanel").innerHTML = `
+          <h3>Other Products</h3>
+          <p class="muted small">You are leaving PisoNarra and opening an external product page configured by backend.</p>
+          <div class="form-actions">
+            <button class="btn" onclick="closeModal(); toast('Opening ${otherProductsH5}')">Agree and open</button>
+            <button class="btn secondary" onclick="closeModal()">Cancel</button>
+          </div>
+        `;
+        openModal();
+      };
+
+      function setApplicationSubmittedStatus() {
+        currentProductScenario = "creditReview";
+        homeReviewScreenshotNotice = false;
+        renderHomeProducts();
+      }
+
+      window.submitFace = function finalSubmitFace() {
+        if (!faceDone) {
+          document.getElementById("faceError").textContent = "Please complete facial recognition or upload a handheld ID photo.";
+          return;
+        }
+        document.getElementById("modalPanel").innerHTML = `
+          <h3>Application submitted</h3>
+          <p class="muted small">Your credit application was submitted successfully. The home status will refresh automatically.</p>
+        `;
+        openModal();
+        setTimeout(() => {
+          closeModal();
+          setApplicationSubmittedStatus();
+          show("home");
+        }, 5000);
+      };
+
+      function money(amount) {
+        return "₱" + Math.round(Number(amount) || 0).toLocaleString();
+      }
+
+      function selectedTermConfig() {
+        return withdrawTermConfig[selectedFinalTerm] || withdrawTermConfig["91 days / 3 terms"];
+      }
+
+      function clampFinalAmount(value) {
+        const cfg = selectedTermConfig();
+        return Math.max(cfg.min, Math.min(cfg.max, Number(value) || cfg.min));
+      }
+
+      function updateLoanRequestByTerm(resetToMax = false) {
+        const panel = document.querySelector("#loanRequest .segmented");
+        if (panel && !panel.dataset.finalTerms) {
+          panel.dataset.finalTerms = "1";
+          panel.innerHTML = Object.keys(withdrawTermConfig).map((label, index) =>
+            `<button class="${label === selectedFinalTerm ? "active" : ""}" onclick="selectTerm(this,'${label}')">${label}</button>`
+          ).join("");
+        }
+        const cfg = selectedTermConfig();
+        currentAmount = resetToMax ? cfg.max : clampFinalAmount(currentAmount || cfg.max);
+        document.getElementById("loanAmount").textContent = money(currentAmount);
+        document.getElementById("approvedAmount").textContent = `${money(cfg.min)} - ${money(cfg.max)}`;
+        document.getElementById("approvedTerm").textContent = cfg.termText;
+        document.getElementById("requestAmount").textContent = money(currentAmount);
+        const rows = document.querySelectorAll("#loanRequest .section.card")[1]?.querySelectorAll(".summary-row b") || [];
+        const actualReceived = Math.round(currentAmount * cfg.receivedRate);
+        const interest = Math.round(currentAmount * cfg.interestRate);
+        const service = Math.round(currentAmount * cfg.serviceRate);
+        if (rows[1]) rows[1].textContent = money(actualReceived);
+        if (rows[2]) rows[2].textContent = money(interest);
+        if (rows[3]) rows[3].textContent = money(service);
+        if (rows[4]) rows[4].textContent = money(cfg.riskFee);
+        if (rows[5]) rows[5].textContent = money(cfg.maintenanceFee);
+        if (rows[6]) rows[6].textContent = money(cfg.systemFee);
+        const planCard = [...document.querySelectorAll("#loanRequest .section.card")].find(card => card.querySelector("h3")?.textContent === "Repayment Plan");
+        if (planCard) {
+          planCard.innerHTML = `<h3>Repayment Plan</h3>` + cfg.plan.map(([term, value]) => `<div class="summary-row"><span>${term}</span><b>${value}</b></div>`).join("") + `<button class="link-btn" style="margin-top:10px;" onclick="openPlan()">View Full Plan</button>`;
+        }
+        const buttons = document.querySelectorAll("#loanRequest .amount-control button");
+        if (buttons[0]) buttons[0].disabled = currentAmount <= cfg.min;
+        if (buttons[1]) buttons[1].disabled = currentAmount >= cfg.max;
+      }
+
+      window.adjustAmount = function finalAdjustAmount(delta) {
+        currentAmount = clampFinalAmount((currentAmount || selectedTermConfig().max) + delta);
+        updateLoanRequestByTerm(false);
+      };
+
+      window.selectTerm = function finalSelectTerm(button, label) {
+        selectedFinalTerm = label;
+        button.parentElement.querySelectorAll("button").forEach(b => b.classList.remove("active"));
+        button.classList.add("active");
+        updateLoanRequestByTerm(true);
+        toast("Selected " + label);
+      };
+
+      function hasWithdrawalAccount() {
+        const list = withdrawAccounts[selectedWithdraw.type] || [];
+        return Boolean(list.find(account => account.id === selectedWithdraw.id));
+      }
+
+      function submitWithdrawOrder(amountWasMax) {
+        if (!hasWithdrawalAccount()) {
+          window.__pendingWithdrawSubmit = true;
+          window.__addAccountReturnMode = "withdraw-submit";
+          toast("Please bind a withdrawal account first");
+          return show("addWallet");
+        }
+        lastSubmittedLoanAmount = currentAmount;
+        window.__lastSubmittedLoanAmountText = money(currentAmount);
+        productScenarios.payoutProcessing.states[1].submittedAmount = money(currentAmount);
+        currentProductScenario = "payoutProcessing";
+        setPayoutState("disbursing");
+        document.getElementById("modalPanel").innerHTML = `
+          <h3>Loan submitted successfully</h3>
+          <p class="muted small">Your withdrawal request has been submitted. The home page status has been refreshed.</p>
+          <div class="summary-row"><span>Loan amount</span><b>${money(currentAmount)}</b></div>
+          <div class="summary-row"><span>Term</span><b>${selectedFinalTerm}</b></div>
+          <div class="summary-row"><span>Maximum amount selected</span><b>${amountWasMax ? "Yes" : "No"}</b></div>
+          <div class="form-actions"><button class="btn" onclick="closeModal(); show('home')">OK</button></div>
+        `;
+        openModal();
+      }
+
+      function openMaxAmountGuide() {
+        const cfg = selectedTermConfig();
+        document.getElementById("modalPanel").innerHTML = `
+          <h3>Use your full approved amount?</h3>
+          <p class="muted small">The maximum available amount for ${selectedFinalTerm} is ${money(cfg.max)}. You can increase your loan amount before submitting.</p>
+          <div class="summary-row"><span>Current amount</span><b>${money(currentAmount)}</b></div>
+          <div class="summary-row"><span>Maximum amount</span><b>${money(cfg.max)}</b></div>
+          <div class="form-actions">
+            <button class="btn" onclick="acceptMaxWithdrawAmount()">Yes, use maximum</button>
+            <button class="btn secondary" onclick="submitCurrentWithdrawAmount()">No, keep current amount</button>
+          </div>
+        `;
+        openModal();
+      }
+
+      window.acceptMaxWithdrawAmount = function acceptMaxWithdrawAmount() {
+        closeModal();
+        currentAmount = selectedTermConfig().max;
+        updateLoanRequestByTerm(false);
+        submitWithdrawOrder(true);
+      };
+
+      window.submitCurrentWithdrawAmount = function submitCurrentWithdrawAmount() {
+        closeModal();
+        submitWithdrawOrder(false);
+      };
+
+      window.openConfirmLoan = function finalConfirmLoan() {
+        updateLoanRequestByTerm(false);
+        const cfg = selectedTermConfig();
+        if (currentAmount < cfg.max) return openMaxAmountGuide();
+        submitWithdrawOrder(true);
+      };
+
+      const previousValidateWallet = window.validateWallet || validateWallet;
+      validateWallet = window.validateWallet = function finalValidateWallet() {
+        previousValidateWallet();
+        const added = selectedWithdraw.type === "wallet" && hasWithdrawalAccount();
+        if (added && (window.__pendingWithdrawSubmit || window.__addAccountReturnMode === "withdraw-submit")) returnAfterAccountAdded("wallet");
+      };
+
+      const previousValidateBank = window.validateBank || validateBank;
+      validateBank = window.validateBank = function finalValidateBank() {
+        previousValidateBank();
+        const added = selectedWithdraw.type === "bank" && hasWithdrawalAccount();
+        if (added && (window.__pendingWithdrawSubmit || window.__addAccountReturnMode === "withdraw-submit")) returnAfterAccountAdded("bank");
+      };
+
+      window.clearWithdrawalAccountsForDemo = function clearWithdrawalAccountsForDemo() {
+        withdrawAccounts.wallet.length = 0;
+        withdrawAccounts.bank.length = 0;
+        selectedWithdraw.type = "wallet";
+        selectedWithdraw.id = "";
+        updateWithdrawAccountSummary();
+        toast("Demo: no withdrawal account is bound");
+      };
+
+      addFinalScenarioButton("demoNoAccount", "Demo no account");
+      const noAccountButton = document.querySelector('#productStateJumpGrid [data-product-state="demoNoAccount"]');
+      if (noAccountButton) {
+        noAccountButton.onclick = () => {
+          currentProductScenario = "quotaApproved";
+          clearWithdrawalAccountsForDemo();
+          show("loanRequest");
+        };
+      }
+
+      const previousSetRepaymentScenario = window.setRepaymentScenario;
+      if (previousSetRepaymentScenario) {
+        window.setRepaymentScenario = function finalSetRepaymentScenario(key) {
+          previousSetRepaymentScenario(key);
+          if (key === "zeroPayable") toast("Zero payable uses customer-service notice in this prototype");
+        };
+      }
+
+      const previousShowForLoan = window.show;
+      window.show = function loanRulesShow(id) {
+        previousShowForLoan(id);
+        if (id === "loanRequest") updateLoanRequestByTerm(true);
+        if (id === "home") renderHomeProducts();
+      };
+
+      updateLoanRequestByTerm(false);
+    })();
+  </script>
+  <script>
+    function authLogout() {
+      if (window.__pisoAuthLogout) window.__pisoAuthLogout();
+    }
   </script>
 </body>
 </html>
