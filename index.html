@@ -1109,7 +1109,7 @@
     <section id="apply1" class="screen">
       <div class="topbar"><button class="icon-btn" onclick="show('home')">‹</button><h2 style="margin:0;">Verification</h2><span class="tag gold">Step 1 of 4</span></div>
       <div class="steps"><span class="step-dot done"></span><span class="step-dot"></span><span class="step-dot"></span><span class="step-dot"></span></div>
-      <div class="section card">
+      <div class="section card" style="display:none;">
         <div class="loan-head"><div><b>Risk data authorization</b><p id="riskDataStatus" class="small muted">SMS, location, app usage and behavior events not collected yet.</p></div><span id="riskDataTag" class="tag gold">Required</span></div>
         <div class="summary-row"><span>SMS OTP data</span><b id="riskSms">Pending</b></div>
         <div class="summary-row"><span>Location data</span><b id="riskLocation">Pending</b></div>
@@ -1119,8 +1119,8 @@
         <button class="btn secondary small-btn" style="margin-top:12px;" onclick="openRiskDataConsent()">Collect risk data</button>
       </div>
       <div class="card">
-        <h3>ID photo OCR</h3>
-        <p class="small muted">Upload a government ID. OCR will fill your name, ID number, birthday and gender.</p>
+        <h3 style="display:none;">ID photo OCR</h3>
+        <p class="small muted" style="display:none;">Upload a government ID. OCR will fill your name, ID number, birthday and gender.</p>
         <div class="field"><label>ID Type</label><select id="idType" onchange="onIdTypeChange(); openNextChoice('idNumber', 'ID No.')"><option value="">Select ID type</option><option>UMID</option><option>PASSPORT</option><option>DRIVINGLICENSE</option><option>SSS</option><option>PRC</option><option>POSTALID</option><option>GSIS</option><option>PhilHealth ID</option><option>NATIONALID</option><option>NATIONALID (electronic)</option></select></div>
         <button class="upload-box" type="button" onclick="uploadIdPhoto('front')"><div><b>Front ID photo</b><p id="frontPhotoText" class="small muted">Click to upload front ID</p></div></button>
         <button id="backUploadBox" class="upload-box" type="button" onclick="uploadIdPhoto('back')"><div><b>Back ID photo</b><p id="backPhotoText" class="small muted">Click to upload back ID</p></div></button>
